@@ -4,6 +4,10 @@ var EventEmitter = require('events').EventEmitter;
 var debug = require('debug')('meshblu-beacon')
 var Bleacon = require('bleacon');
 
+var prevRSSI;
+var prevACC;
+
+
 var MESSAGE_SCHEMA = {
   type: 'object',
   properties: {
@@ -48,8 +52,23 @@ Plugin.prototype.onConfig = function(device){
   Bleacon.startScanning();
 
   Bleacon.on('discover', function(bleacon) {
-    console.log(bleacon);
-    self.emit('message', {devices: ['*'], payload: bleacon });
+
+    setTimeout(function() {
+     
+
+
+  if(bleacon.rssi != prevRSSI && bleacon.accuracy != prevACC){
+      self.emit('message', {devices: ['*'], payload: bleacon });
+      console.log(bleacon);
+
+    }
+
+      prevRSSI = bleacon.rssi;
+      prevACC = bleacon.accuracy;
+
+}, 200); 
+
+    
 });
 
 };

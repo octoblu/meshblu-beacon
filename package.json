@@ -7,7 +7,7 @@
     "test": "exit 0"
   },
   "dependencies": {
-    "bleacon": "^0.2.2",
+    "bleacon": "^0.2.3",
     "debug": "^2.1.0",
     "meshblu": "^1.9.0"
   },
