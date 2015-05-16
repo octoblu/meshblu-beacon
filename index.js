@@ -2,6 +2,7 @@
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var debug = require('debug')('meshblu-beacon')
+var Bleacon = require('bleacon');
 
 var MESSAGE_SCHEMA = {
   type: 'object',
@@ -37,11 +38,20 @@ util.inherits(Plugin, EventEmitter);
 
 Plugin.prototype.onMessage = function(message){
   var payload = message.payload;
-  this.emit('message', {devices: ['*'], topic: 'echo', payload: payload});
+ 
 };
 
 Plugin.prototype.onConfig = function(device){
+  var self = this;
   this.setOptions(device.options||{});
+
+  Bleacon.startScanning();
+
+  Bleacon.on('discover', function(bleacon) {
+    console.log(bleacon);
+    self.emit('message', {devices: ['*'], payload: bleacon });
+});
+
 };
 
 Plugin.prototype.setOptions = function(options){
