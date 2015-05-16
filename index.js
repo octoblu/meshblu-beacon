@@ -82,7 +82,7 @@ if (device.options.uuid && device.options.majorId && device.options.minorId){
 
   if(bleacon.rssi != prevRSSI && bleacon.accuracy != prevACC){
       self.emit('message', {devices: ['*'], payload: bleacon });
-      console.log(bleacon);
+ //     console.log(bleacon);
 
     }
 

@@ -1,7 +1,7 @@
 {
   "name": "meshblu-beacon",
   "repository": "octoblu/meshblu-beacon",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": {
     "start": "node command.js",
     "test": "exit 0"
