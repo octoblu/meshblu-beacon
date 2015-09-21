@@ -1,6 +1,10 @@
 language: node_js
 node_js:
 - '0.10'
+addons:
+  apt:
+    packages:
+    - libbluetooth-dev
 before_install:
   - npm install npm -g
 before_deploy:
