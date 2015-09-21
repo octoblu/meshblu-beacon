@@ -4,8 +4,7 @@ node_js:
 addons:
   apt:
     packages:
-    - luetooth
-    - bluez-utils
+    - bluetooth
     - libbluetooth-dev
     - libudev-dev
 before_install:
