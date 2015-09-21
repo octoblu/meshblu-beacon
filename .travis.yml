@@ -4,7 +4,10 @@ node_js:
 addons:
   apt:
     packages:
+    - luetooth
+    - bluez-utils
     - libbluetooth-dev
+    - libudev-dev
 before_install:
   - npm install npm -g
 before_deploy:
