@@ -1,16 +1,47 @@
 {
   "name": "meshblu-beacon",
   "repository": "octoblu/meshblu-beacon",
-  "version": "1.0.2",
+  "version": "1.1.0",
+  "main": "connector.js",
   "scripts": {
+    "preinstall": "node -e \"try{require('./skip-install.js')}catch(e){}\"",
     "start": "node command.js",
     "test": "exit 0"
   },
   "dependencies": {
-    "bleacon": "^0.2.3",
+    "bleacon": "^0.4.0",
     "debug": "^2.1.0",
-    "meshblu": "^1.9.0"
+    "meshblu": "^1.30.1"
   },
+  "bundledDependencies": [
+    "request",
+    "tar",
+    "fstream"
+  ],
+  "platformDependencies": {
+    "darwin": [
+      "xcode"
+    ],
+    "win32": [
+      "Python 2.7",
+      "Visual Studio (Express)",
+      "Compatible Bluetooth 4.0 USB adapter",
+      "WinUSB driver setup for Bluetooth 4.0 USB adapter, using Zadig tool"
+    ],
+    "win64": [
+      "Python 2.7",
+      "Visual Studio (Express)",
+      "Compatible Bluetooth 4.0 USB adapter",
+      "WinUSB driver setup for Bluetooth 4.0 USB adapter, using Zadig tool"
+    ],
+    "linux": [
+      "Kernel version 3.6 or above",
+      "libbluetooth-dev"
+    ],
+    "android": [],
+    "ios": []
+  },
+  "license": "MIT",
   "keywords": [
     "meshblu-connector",
     "gateblu"

@@ -1,18 +1,17 @@
 'use strict';
-var util = require('util');
+var util         = require('util');
+var debug        = require('debug')('meshblu-beacon')
+var Bleacon      = require('bleacon');
 var EventEmitter = require('events').EventEmitter;
-var debug = require('debug')('meshblu-beacon')
-var Bleacon = require('bleacon');
 
 var prevRSSI;
 var prevACC;
 
+var TIMEOUT=200;
 
 var MESSAGE_SCHEMA = {
   type: 'object',
-  properties: {
-   
-  }
+  properties: {}
 };
 
 var OPTIONS_SCHEMA = {
@@ -37,68 +36,41 @@ var OPTIONS_SCHEMA = {
 };
 
 function Plugin(){
-  this.options = {};
-  this.messageSchema = MESSAGE_SCHEMA;
-  this.optionsSchema = OPTIONS_SCHEMA;
-  return this;
+  var self = this;
+  self.options = {};
+  self.messageSchema = MESSAGE_SCHEMA;
+  self.optionsSchema = OPTIONS_SCHEMA;
+  return self;
 }
 util.inherits(Plugin, EventEmitter);
 
 Plugin.prototype.onMessage = function(message){
   var payload = message.payload;
- 
 };
 
 Plugin.prototype.onConfig = function(device){
   var self = this;
-  this.setOptions(device.options||{});
-
-if (device.options.uuid && device.options.majorId && device.options.minorId){
-
-      Bleacon.startScanning(device.options.uuid, device.options.majorId, device.options.minorId);
-
-}else if(device.options.uuid && device.options.majorId){
-
-      Bleacon.startScanning(device.options.uuid, device.options.majorId);
-
-
-}else if(device.options.uuid){
-
-      Bleacon.startScanning(device.options.uuid);
-
-
-}else{
-
-       Bleacon.startScanning();
-
-}
-
+  self.setOptions(device.options);
+  debug('on config');
+  Bleacon.startScanning(self.options.uuid, self.options.majorId, self.options.minorId);
 
   Bleacon.on('discover', function(bleacon) {
-   
-
-    setTimeout(function() {
-
-
-  if(bleacon.rssi != prevRSSI && bleacon.accuracy != prevACC){
-      self.emit('message', {devices: ['*'], payload: bleacon });
- //     console.log(bleacon);
-
+    var self = this;
+    debug('on discover');
+    if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
+      debug('same thing');
+      return;
     }
-
-      prevRSSI = bleacon.rssi;
-      prevACC = bleacon.accuracy;
-
-}, 200);  //end timeout
-
-
-    
-});
-
+    self.emit('message', {devices: ['*'], payload: bleacon });
+    prevRSSI = bleacon.rssi;
+    prevACC = bleacon.accuracy;
+    debug('sent message');
+  });
 };
 
 Plugin.prototype.setOptions = function(options){
-  this.options = options;
+  this.options = options || {};
+  debug('options', this.options);
 };
 
 module.exports = {
