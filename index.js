@@ -55,7 +55,7 @@ Plugin.prototype.onConfig = function(device){
   Bleacon.startScanning(self.options.uuid, self.options.majorId, self.options.minorId);
 
   Bleacon.on('discover', function(bleacon) {
-    var self = this;
+    
     debug('on discover');
     if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
       debug('same thing');
