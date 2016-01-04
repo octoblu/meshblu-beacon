@@ -17,8 +17,14 @@ var MESSAGE_SCHEMA = {
 var OPTIONS_SCHEMA = {
   type: 'object',
   properties: {
+    scanAll: {
+      title: "Scan for any nearby beacons",
+      type: 'boolean',
+      default: true,
+      required: true
+    },
     uuid: {
-      title: "UUID: Leave blank to scan for ANY nearby beacon",
+      title: "UUID:",
       type: 'string',
       required: false
     },
@@ -52,19 +58,25 @@ Plugin.prototype.onConfig = function(device){
   var self = this;
   self.setOptions(device.options);
   debug('on config');
-  Bleacon.startScanning(self.options.uuid, self.options.majorId, self.options.minorId);
+
+  if(self.options.scanAll == true){
+    Bleacon.startScanning();
+  }else{
+    Bleacon.startScanning(self.options.uuid, self.options.majorId, self.options.minorId);
+  }
 
   Bleacon.on('discover', function(bleacon) {
-    
+
     debug('on discover');
     if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
       debug('same thing');
-      return;
+    }else{
+      self.emit('message', {devices: ['*'], payload: bleacon });
+      prevRSSI = bleacon.rssi;
+      prevACC = bleacon.accuracy;
+      debug('sent message');
     }
-    self.emit('message', {devices: ['*'], payload: bleacon });
-    prevRSSI = bleacon.rssi;
-    prevACC = bleacon.accuracy;
-    debug('sent message');
+
   });
 };
 
