@@ -8,6 +8,7 @@ var prevRSSI;
 var prevACC;
 
 var TIMEOUT=200;
+var handling = false;
 
 var MESSAGE_SCHEMA = {
   type: 'object',
@@ -43,7 +44,7 @@ var OPTIONS_SCHEMA = {
 
 function Plugin(){
   var self = this;
-  self.options = {};
+  self.options = { "scanAll": true };
   self.messageSchema = MESSAGE_SCHEMA;
   self.optionsSchema = OPTIONS_SCHEMA;
   return self;
@@ -58,15 +59,22 @@ Plugin.prototype.onConfig = function(device){
   var self = this;
   self.setOptions(device.options);
   debug('on config');
-
   if(self.options.scanAll == true){
     Bleacon.startScanning();
   }else{
     Bleacon.startScanning(self.options.uuid, self.options.majorId, self.options.minorId);
   }
 
-  Bleacon.on('discover', function(bleacon) {
+  if(!handling){
+    self.handleDiscover();
+  }
+};
 
+Plugin.prototype.handleDiscover = function(){
+  var self = this;
+
+  handling = true;
+  Bleacon.on('discover', function(bleacon) {
     debug('on discover');
     if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
       debug('same thing');
@@ -76,12 +84,11 @@ Plugin.prototype.onConfig = function(device){
       prevACC = bleacon.accuracy;
       debug('sent message');
     }
-
   });
-};
+}
 
 Plugin.prototype.setOptions = function(options){
-  this.options = options || {};
+  this.options = options || { "scanAll": true };
   debug('options', this.options);
 };
 

@@ -1,7 +1,7 @@
 {
   "name": "meshblu-beacon",
   "repository": "octoblu/meshblu-beacon",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "main": "connector.js",
   "scripts": {
     "preinstall": "node -e \"try{require('./skip-install.js')}catch(e){}\"",
