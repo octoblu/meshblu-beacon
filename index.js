@@ -5,8 +5,7 @@ var Bleacon      = require('bleacon');
 var EventEmitter = require('events').EventEmitter;
 var _            = require('lodash');
 
-var prevRSSI;
-var prevACC;
+var previousProximities = {};
 
 var TIMEOUT=200;
 var handling = false;
@@ -76,21 +75,27 @@ Plugin.prototype.handleDiscover = function(){
 
   handling = true;
   Bleacon.on('discover', function(bleacon) {
-    debug('on discover');
-    if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
-      debug('same thing');
-    }else{
-      throttledEmit(bleacon);
-      prevRSSI = bleacon.rssi;
-      prevACC = bleacon.accuracy;
-      debug('sent message');
-    }
-  });
+    var proximityId = bleacon.uuid + ':' + bleacon.major + ':' + bleacon.minor;
+    var previousProximity = previousProximities[proximityId];
 
-  var throttledEmit = _.throttle(function(payload){
-    debug('throttled', payload);
-    self.emit('message', {"devices": ['*'], "payload": payload});
-  }, 500, {'leading': false});
+    debug('Discovered: ', proximityId, bleacon.proximity);
+    if (previousProximity && previousProximity.proximity === bleacon.proximity){
+      debug('Proximity has already been sent');
+      return;
+    }
+
+    if (!previousProximity) {
+      previousProximities[proximityId] = {emitBleacon: _.throttle(_.bind(self.emitBleacon, self), 500)}
+    }
+
+    previousProximities[proximityId].emitBleacon(bleacon);
+    previousProximities[proximityId].proximity = bleacon.proximity;
+  });
+};
+
+Plugin.prototype.emitBleacon = function(payload) {
+  debug('emitBleacon');
+  this.emit('message', {"devices": ['*'], "payload": payload});
 };
 
 Plugin.prototype.setOptions = function(options){
