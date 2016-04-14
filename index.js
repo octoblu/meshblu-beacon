@@ -80,7 +80,6 @@ Plugin.prototype.handleDiscover = function(){
     if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
       debug('same thing');
     }else{
-      // self.emit('message', {devices: ['*'], payload: bleacon });
       throttledEmit(bleacon);
       prevRSSI = bleacon.rssi;
       prevACC = bleacon.accuracy;
