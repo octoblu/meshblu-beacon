@@ -3,6 +3,7 @@ var util         = require('util');
 var debug        = require('debug')('meshblu-beacon')
 var Bleacon      = require('bleacon');
 var EventEmitter = require('events').EventEmitter;
+var _            = require('lodash');
 
 var prevRSSI;
 var prevACC;
@@ -79,13 +80,19 @@ Plugin.prototype.handleDiscover = function(){
     if(bleacon.rssi == prevRSSI || bleacon.accuracy == prevACC){
       debug('same thing');
     }else{
-      self.emit('message', {devices: ['*'], payload: bleacon });
+      // self.emit('message', {devices: ['*'], payload: bleacon });
+      throttledEmit(bleacon);
       prevRSSI = bleacon.rssi;
       prevACC = bleacon.accuracy;
       debug('sent message');
     }
   });
-}
+
+  var throttledEmit = _.throttle(function(payload){
+    debug('throttled', payload);
+    self.emit('message', {"devices": ['*'], "payload": payload});
+  }, 500, {'leading': false});
+};
 
 Plugin.prototype.setOptions = function(options){
   this.options = options || { "scanAll": true };
