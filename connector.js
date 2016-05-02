@@ -75,6 +75,7 @@ Connector.prototype.onReady = function(){
       uuid:          self.config.uuid,
       token:         self.config.token,
       messageSchema: self.plugin.messageSchema,
+      messageFormSchema: self.plugin.messageFormSchema,
       optionsSchema: self.plugin.optionsSchema,
       options:       self.plugin.options,
       initializing:  false,

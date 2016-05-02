@@ -12,12 +12,92 @@ var handling = false;
 
 var MESSAGE_SCHEMA = {
   type: 'object',
-  properties: {}
+  properties: {action: {
+      title: 'Action',
+      type: 'string',
+      required: false,
+      default: ''
+    },  
+    uuid: {
+       title: 'UUID',
+       type: 'string',
+       required: true,
+       default: "00000000-0000-0000-0000-000000000000"
+    },
+    major: {
+      title: 'Major (0 - 65535)',
+      type: 'integer',
+      required: true,
+      default: 0
+    },
+    minor: {
+      title: 'Minor (0 - 65535)',
+      type: 'integer',
+      required: true,
+      default: 0
+    },
+    measuredPower: {
+      title: 'measuredPower (-59 -128 -127 - measured RSSI at 1 meter)',
+      type: 'integer',
+      required: true,
+      default: -59
+    }
+  }
 };
+
+
+var ACTION_MAP = [
+  {
+    'value': 'enableBeacon',
+    'name': 'Enable iBeacon'
+  }, 
+  {
+    'value': 'disableBeacon',
+    'name': 'Disable iBeacon'
+  }
+]
+
+var MESSAGE_FORM_SCHEMA = [
+  {
+    'key': 'action',
+    'type': 'select',
+    'titleMap': ACTION_MAP,
+  },
+  {
+    'key': 'uuid',
+    'condition': "model.action == 'enableBeacon'"
+  },
+  {
+    'key': 'major',
+    'condition': "model.action == 'enableBeacon'"
+  },
+  {
+    'key': 'minor',
+    'condition': "model.action == 'enableBeacon'"
+  },
+  {
+    'key': 'measuredPower',
+    'condition': "model.action == 'enableBeacon'"
+  }
+]
+
+
 
 var OPTIONS_SCHEMA = {
   type: 'object',
   properties: {
+    timeout: {
+      title: "Timeout in seconds (to detect beacon is out of range)",
+      type: 'number',
+      default: 3,
+      required: false
+    }, 
+    rangedBm: {
+      title: "Range in dBm to update (lower is more frequent)",
+      type: 'number',
+      default: 3,
+      required: false
+    }, 
     scanAll: {
       title: "Scan for any nearby beacons",
       type: 'boolean',
@@ -38,7 +118,7 @@ var OPTIONS_SCHEMA = {
       title: "Minor Id: Optional",
       type: 'number',
       required: false
-    }
+    } 
   }
 };
 
@@ -46,13 +126,25 @@ function Plugin(){
   var self = this;
   self.options = { "scanAll": true };
   self.messageSchema = MESSAGE_SCHEMA;
+  self.messageFormSchema = MESSAGE_FORM_SCHEMA;
   self.optionsSchema = OPTIONS_SCHEMA;
   return self;
 }
 util.inherits(Plugin, EventEmitter);
 
 Plugin.prototype.onMessage = function(message){
+  var self = this;
   var payload = message.payload;
+
+  console.log(payload.action);
+  switch  (payload.action) {
+     case 'enableBeacon':  Bleacon.startAdvertising(payload.uuid, payload.major, payload.minor, payload.measuredPower);    
+                           break;
+     case 'disableBeacon': Bleacon.stopAdvertising();
+                           break;
+     default: 
+  }
+
 };
 
 Plugin.prototype.onConfig = function(device){
@@ -75,22 +167,58 @@ Plugin.prototype.handleDiscover = function(){
 
   handling = true;
   Bleacon.on('discover', function(bleacon) {
+    var octoBleacon = bleacon;
     var proximityId = bleacon.uuid + ':' + bleacon.major + ':' + bleacon.minor;
     var previousProximity = previousProximities[proximityId];
+    
 
-    debug('Discovered: ', proximityId, bleacon.proximity);
-    if (previousProximity && previousProximity.proximity === bleacon.proximity){
+    debug('Discovered: ', proximityId, bleacon.rssi);
+    // Only send beacon when rssi is changed +/- 3 dBm
+    if ((previousProximity &&  previousProximity.rssi - self.options.rangedBm) < bleacon.rssi && (previousProximity && previousProximity.rssi + self.options.rangedBm) > bleacon.rssi){
       debug('Proximity has already been sent');
+      previousProximities[proximityId].lastseen = Date.now();; //But store the last time the beacon was seen
       return;
     }
 
     if (!previousProximity) {
       previousProximities[proximityId] = {emitBleacon: _.throttle(_.bind(self.emitBleacon, self), 500)}
-    }
+      previousProximities[proximityId].uuid     = bleacon.uuid;
+      previousProximities[proximityId].major    = bleacon.major;
+      previousProximities[proximityId].minor    = bleacon.minor;
+    } 
+    
 
     previousProximities[proximityId].emitBleacon(bleacon);
-    previousProximities[proximityId].proximity = bleacon.proximity;
+    previousProximities[proximityId].rssi     = bleacon.rssi;
+    previousProximities[proximityId].lastseen = Date.now();;
   });
+
+  setInterval(function() {
+     //Iterate through known beacons every 250ms
+     for (var proximityId in previousProximities) {
+
+        //Determine if the beacon was seen the last x-seconds
+        if (Date.now() - previousProximities[proximityId].lastseen > (self.options.timeout * 1000)) {
+           console.log("Beacon " + proximityId + " is GONE");
+           var bleacon = {};
+               bleacon.uuid          = previousProximities[proximityId].uuid;
+               bleacon.major         = previousProximities[proximityId].major;
+               bleacon.minor         = previousProximities[proximityId].minor;
+               bleacon.measuredPower = 0;
+               bleacon.rssi          = 0;
+               bleacon.accuracy      = 0 ;
+               bleacon.proximity     = "gone";
+           
+           //Inform meshblu
+           previousProximities[proximityId].emitBleacon(bleacon);
+           
+           //Remove from known beacons list
+           delete previousProximities[proximityId];
+        }
+     }
+  }, 250);
+
+
 };
 
 Plugin.prototype.emitBleacon = function(payload) {
@@ -105,6 +233,7 @@ Plugin.prototype.setOptions = function(options){
 
 module.exports = {
   messageSchema: MESSAGE_SCHEMA,
+  messageFormSchema: MESSAGE_FORM_SCHEMA,
   optionsSchema: OPTIONS_SCHEMA,
   Plugin: Plugin
 };
