@@ -9,6 +9,7 @@ var previousProximities = {};
 
 var TIMEOUT=200;
 var handling = false;
+var scanning = false;
 
 var MESSAGE_SCHEMA = {
   type: 'object',
@@ -92,6 +93,12 @@ var OPTIONS_SCHEMA = {
       default: 3,
       required: false
     }, 
+    detectRSSIchange: {
+      title: "Update on RSSI change instead of proximity",
+      type: 'boolean',
+      default: false,
+      required: true
+    },
     rangedBm: {
       title: "Range in dBm to update (lower is more frequent)",
       type: 'number',
@@ -149,57 +156,37 @@ Plugin.prototype.onMessage = function(message){
 
 Plugin.prototype.onConfig = function(device){
   var self = this;
-  self.setOptions(device.options);
+      self.setOptions(device.options);
   debug('on config');
+  
+ 
+  if (scanning) {
+     Bleacon.stopScanning(); //in case of re-configuration
+  }
+  
   if(self.options.scanAll == true){
     Bleacon.startScanning();
+    scanning = true;
   }else{
     Bleacon.startScanning(self.options.uuid, self.options.majorId, self.options.minorId);
+    scanning = true;
   }
-
+ 
   if(!handling){
     self.handleDiscover();
   }
 };
 
 Plugin.prototype.handleDiscover = function(){
-  var self = this;
-
+  var self = this;  
   handling = true;
-  Bleacon.on('discover', function(bleacon) {
-    var octoBleacon = bleacon;
-    var proximityId = bleacon.uuid + ':' + bleacon.major + ':' + bleacon.minor;
-    var previousProximity = previousProximities[proximityId];
-    
-
-    debug('Discovered: ', proximityId, bleacon.rssi);
-    // Only send beacon when rssi is changed +/- 3 dBm
-    if ((previousProximity &&  previousProximity.rssi - self.options.rangedBm) < bleacon.rssi && (previousProximity && previousProximity.rssi + self.options.rangedBm) > bleacon.rssi){
-      debug('Proximity has already been sent');
-      previousProximities[proximityId].lastseen = Date.now();; //But store the last time the beacon was seen
-      return;
-    }
-
-    if (!previousProximity) {
-      previousProximities[proximityId] = {emitBleacon: _.throttle(_.bind(self.emitBleacon, self), 500)}
-      previousProximities[proximityId].uuid     = bleacon.uuid;
-      previousProximities[proximityId].major    = bleacon.major;
-      previousProximities[proximityId].minor    = bleacon.minor;
-    } 
-    
-
-    previousProximities[proximityId].emitBleacon(bleacon);
-    previousProximities[proximityId].rssi     = bleacon.rssi;
-    previousProximities[proximityId].lastseen = Date.now();;
-  });
-
+  
   setInterval(function() {
-     //Iterate through known beacons every 250ms
      for (var proximityId in previousProximities) {
-
+     
         //Determine if the beacon was seen the last x-seconds
         if (Date.now() - previousProximities[proximityId].lastseen > (self.options.timeout * 1000)) {
-           console.log("Beacon " + proximityId + " is GONE");
+           debug('Beacon is GONE', proximityId);
            var bleacon = {};
                bleacon.uuid          = previousProximities[proximityId].uuid;
                bleacon.major         = previousProximities[proximityId].major;
@@ -217,8 +204,41 @@ Plugin.prototype.handleDiscover = function(){
         }
      }
   }, 250);
-
-
+  
+  Bleacon.on('discover', function(bleacon) {
+    var proximityId = bleacon.uuid + ':' + bleacon.major + ':' + bleacon.minor;
+    var previousProximity = previousProximities[proximityId];
+    var proximityChanged = true;
+    
+    // Only send beacon when proximity / rssi is changed
+    if(self.options.detectRSSIchange == true){
+       // Check rssi
+      if ((previousProximity &&  previousProximity.rssi - self.options.rangedBm) < bleacon.rssi && (previousProximity && previousProximity.rssi + self.options.rangedBm) > bleacon.rssi){ proximityChanged = false; }
+    } else
+    {
+      // Check proximity
+      if (previousProximity && previousProximity.proximity === bleacon.proximity){ proximityChanged = false; }
+    }
+     
+    if (!proximityChanged){
+      //debug('Discovered (already sent): ', proximityId, bleacon.rssi);
+      previousProximities[proximityId].lastseen = Date.now(); //But store the last time the beacon was seen
+      return;
+    } else {
+       debug('Discovered (needs to sent): ', proximityId, bleacon.rssi);
+       if (!previousProximity) {
+         previousProximities[proximityId] = {emitBleacon: _.throttle(_.bind(self.emitBleacon, self), 500)}
+         previousProximities[proximityId].uuid     = bleacon.uuid;
+         previousProximities[proximityId].major    = bleacon.major;
+         previousProximities[proximityId].minor    = bleacon.minor;
+       } 
+    
+       previousProximities[proximityId].emitBleacon(bleacon);
+       previousProximities[proximityId].rssi      = bleacon.rssi;
+       previousProximities[proximityId].proximity = bleacon.proximity;
+       previousProximities[proximityId].lastseen  = Date.now();
+    }
+  });
 };
 
 Plugin.prototype.emitBleacon = function(payload) {
